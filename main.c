@@ -10,8 +10,8 @@ typedef struct {
     int count;
 } FileType;
 
-#define CAP (8 * 4 * 1000)
-FileType file_types[CAP] = {0};
+#define FILE_TYPES_CAP (4 * 1024)
+FileType file_types[FILE_TYPES_CAP] = {0};
 size_t file_types_sz = 0;
 int files_count = 0;
 
@@ -20,9 +20,10 @@ int check_proper_dir(const char *path_name)
     return strcmp(".", path_name) && strcmp("..", path_name);
 }
 
+// TODO: lookup how to handle these kinds of stuff. Obs something is breaking the current stuff.
 const char *construct_path(const char *base, const char *separator, const char *addition)
 {
-    char *path = malloc(strlen(base) + strlen(separator) + strlen(addition));
+    char *path = (char *)malloc(strlen(base) + strlen(separator) + strlen(addition));
     path[0] = '\0';
 
     strcat(path, base);
@@ -42,7 +43,6 @@ FileType *find_ft(const char *extension)
     return NULL;
 }
 
-/* strrchr */
 void parse_file(const char *file_name)
 {
     const char *file_extension = strrchr(file_name, '.');
@@ -67,15 +67,26 @@ void parse_file(const char *file_name)
 
         files_count++;
     }
-    /* else */
-    /* { */
-    /*     FileType *new_ft = malloc(sizeof(FileType)); */
-    /*     new_ft->count = 1; */
-    /*     new_ft->file_type = "other"; */
 
-    /*     file_types[sz] = *new_ft; */
-    /*     sz++; */
-    /* } */
+    /* TODO: add support for `other` file types */
+}
+
+int is_forbiden(int file_type, const char* file_name)
+{
+    if (file_type == DT_DIR)
+    {
+        for (size_t i = 0; i < FORBIDEN_DIRECTORIES_CAP; ++i)
+            if (strcmp(file_name, FORBIDEN_DIRECTORIES[i]) == 0)
+                return 1;
+    }
+    else if (file_type == DT_REG)
+    {
+        for (size_t i = 0; i < FORBIDEN_FILES_CAP; ++i)
+            if (strcmp(file_name, FORBIDEN_FILES[i]) == 0)
+                return 1;
+    }
+
+    return 0;
 }
 
 void iterate(const char *path_name)
@@ -97,11 +108,11 @@ void iterate(const char *path_name)
     {
         if (check_proper_dir(dir_dirent->d_name))
         {
-            if (dir_dirent->d_type == DT_REG)
+            if (dir_dirent->d_type == DT_REG && !is_forbiden(DT_REG, dir_dirent->d_name))
             {
                 parse_file(dir_dirent->d_name);
             }
-            else if (dir_dirent->d_type == DT_DIR)
+            else if (dir_dirent->d_type == DT_DIR && !is_forbiden(DT_DIR, dir_dirent->d_name))
             {
                 iterate(construct_path(path_name, "/", dir_dirent->d_name));
             }
